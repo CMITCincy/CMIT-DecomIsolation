@@ -1,5 +1,4 @@
-#Requires -RunAsAdministrator
-#Requires -Version 5.1
+#Requires -Version 3.0
 <#
 .SYNOPSIS
     Isolates a server from its local subnet ahead of decommissioning.
@@ -49,7 +48,7 @@
 .EXAMPLE
     .\Invoke-DecomIsolation.ps1 -Remove
 #>
-[CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Apply')]
+[CmdletBinding(SupportsShouldProcess = $true, DefaultParameterSetName = 'Apply')]
 param(
     [Parameter(ParameterSetName = 'Apply')]
     [string]$InterfaceAlias,
@@ -63,13 +62,19 @@ param(
     [Parameter(ParameterSetName = 'Apply')]
     [switch]$Force,
 
-    [Parameter(ParameterSetName = 'Remove', Mandatory)]
+    [Parameter(ParameterSetName = 'Remove', Mandatory = $true)]
     [switch]$Remove
 )
 
 $ErrorActionPreference = 'Stop'
 $RuleGroup  = 'Decom Isolation'
 $RulePrefix = 'DECOM-ISOLATE'
+
+# Admin check (#Requires -RunAsAdministrator needs PS 4.0+)
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'This script must be run from an elevated (Run as Administrator) PowerShell session.'
+}
 
 #region Helpers
 function ConvertTo-UInt32IP {
@@ -83,7 +88,7 @@ function ConvertFrom-UInt32IP {
     param([uint32]$Value)
     $bytes = [BitConverter]::GetBytes($Value)
     [Array]::Reverse($bytes)
-    ([System.Net.IPAddress]::new($bytes)).ToString()
+    (New-Object System.Net.IPAddress -ArgumentList (,$bytes)).ToString()
 }
 
 function Get-MaskUInt32 {
